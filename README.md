@@ -97,7 +97,7 @@ pip install pytest pillow && python -m pytest tests
 pyinstaller TransferSending.spec     # crea l'app (.app su Mac, .exe su Windows)
 ```
 
-Le app vengono create automaticamente da GitHub Actions. Per pubblicare una nuova versione: `git tag v0.1.1 && git push --tags`.
+Le app vengono create automaticamente da GitHub Actions. Per pubblicare una nuova versione basta cambiare il numero in `transfersending/__init__.py`: a ogni aggiornamento di `main` la pagina Releases viene aggiornata da sola.
 
 ### Come funziona la sicurezza
 - **HTTPS** con certificato generato sul tuo computer (`cert.pem` nella cartella dati dell'app).

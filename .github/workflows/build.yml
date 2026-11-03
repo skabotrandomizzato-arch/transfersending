@@ -58,15 +58,31 @@ jobs:
           name: ${{ matrix.name }}
           path: ${{ matrix.name }}.zip
 
+  # Pubblica le app nella pagina "Releases" (versione letta da transfersending/__init__.py)
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+      - id: ver
+        run: echo "v=$(grep -oE '[0-9]+\.[0-9]+\.[0-9]+' transfersending/__init__.py)" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v4
         with:
           path: out
           merge-multiple: true
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: v${{ steps.ver.outputs.v }}
+          name: TransferSending ${{ steps.ver.outputs.v }}
+          target_commitish: ${{ github.sha }}
+          make_latest: true
+          body: |
+            Scarica il file per il tuo computer:
+            - **Windows** → `TransferSending-Windows.zip`
+            - **Mac con chip Apple (M1–M4)** → `TransferSending-Mac-AppleSilicon.zip`
+            - **Mac Intel** → `TransferSending-Mac-Intel.zip`
+
+            Istruzioni nel [README](https://github.com/${{ github.repository }}#readme).
           files: out/*.zip
+          overwrite_files: true
