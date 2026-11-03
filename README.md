@@ -20,6 +20,8 @@ Vai su **[Releases](../../releases/latest)** e scarica il file per il tuo comput
 | Mac con chip Apple (M1, M2, M3, M4…) | `TransferSending-Mac-AppleSilicon.zip` |
 | Mac con processore Intel | `TransferSending-Mac-Intel.zip` |
 
+> Se il file *AppleSilicon* non c'è, la versione *Intel* funziona anche sui Mac con chip Apple: il Mac propone di installare "Rosetta", basta accettare.
+>
 > Non sai che Mac hai? Menu  → **Informazioni su questo Mac**: se c'è scritto "Chip Apple M…" prendi *AppleSilicon*, se c'è scritto "Intel" prendi *Intel*.
 
 ## Primo avvio

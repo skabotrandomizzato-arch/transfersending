@@ -60,8 +60,9 @@ jobs:
 
   # Pubblica le app nella pagina "Releases" (versione letta da transfersending/__init__.py)
   release:
-    if: github.event_name == 'push' || github.event_name == 'workflow_dispatch'
-    needs: build
+    # pubblica anche se una build manca (es. GitHub senza Mac disponibili)
+    if: always() && needs.test.result == 'success' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    needs: [test, build]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
