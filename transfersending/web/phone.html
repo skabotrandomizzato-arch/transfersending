@@ -1,0 +1,319 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b6bcb">
+<title>TransferSending</title>
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --text:#16181d; --muted:#626a77; --accent:#0b6bcb;
+          --ok:#1d8a4a; --warn:#b26a00; --err:#c62828; --line:#e3e6ea; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#111318; --card:#1b1e25; --text:#eef0f3; --muted:#9aa3b0; --accent:#4c9bff;
+            --ok:#4cc27e; --warn:#f0a63a; --err:#ff6b6b; --line:#2b2f38; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; font:16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+         background:var(--bg); color:var(--text); padding:16px 16px calc(24px + env(safe-area-inset-bottom)); }
+  main { max-width:560px; margin:0 auto; }
+  h1 { font-size:22px; margin:4px 0 12px; }
+  .tabs { display:flex; gap:8px; margin-bottom:16px; }
+  .tabs button { flex:1; padding:12px; border-radius:12px; border:1px solid var(--line);
+                 background:var(--card); color:var(--text); font-size:16px; font-weight:600; }
+  .tabs button.on { background:var(--accent); border-color:var(--accent); color:#fff; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:16px; margin-bottom:14px; }
+  .big { display:block; width:100%; padding:18px; border-radius:14px; border:0; font-size:18px; font-weight:700;
+         background:var(--accent); color:#fff; text-align:center; cursor:pointer; }
+  .big.secondary { background:transparent; color:var(--accent); border:2px solid var(--accent); }
+  .big:disabled { opacity:.45; }
+  .row { display:flex; justify-content:space-between; gap:8px; align-items:center; }
+  .muted { color:var(--muted); font-size:14px; }
+  label.field { display:block; font-size:14px; color:var(--muted); margin-bottom:4px; }
+  input[type=text] { width:100%; padding:10px 12px; border-radius:10px; border:1px solid var(--line);
+                     background:var(--bg); color:var(--text); font-size:16px; }
+  .bar { height:12px; border-radius:6px; background:var(--line); overflow:hidden; margin:10px 0 6px; }
+  .bar > div { height:100%; width:0; background:var(--accent); transition:width .3s; }
+  .stats { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-top:10px; }
+  .stat { background:var(--bg); border-radius:10px; padding:8px 10px; }
+  .stat b { display:block; font-size:20px; }
+  .list { list-style:none; margin:8px 0 0; padding:0; font-size:14px; }
+  .list li { padding:6px 0; border-top:1px solid var(--line); display:flex; gap:8px; justify-content:space-between; }
+  .list li span:first-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ok { color:var(--ok); } .warn { color:var(--warn); } .err { color:var(--err); }
+  .notice { font-size:14px; padding:10px 12px; border-radius:10px; background:var(--bg); margin-top:10px; }
+  details { border-top:1px solid var(--line); padding:10px 0; }
+  details:first-of-type { border-top:0; }
+  summary { cursor:pointer; font-weight:600; display:flex; justify-content:space-between; gap:8px; }
+  summary::-webkit-details-marker { display:none; }
+  a.btn { display:inline-block; padding:8px 12px; border-radius:10px; background:var(--accent);
+          color:#fff; text-decoration:none; font-size:14px; font-weight:600; white-space:nowrap; }
+  a.file { color:var(--text); text-decoration:none; }
+  .hidden { display:none !important; }
+  h2 { font-size:17px; margin:0 0 6px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>📲 TransferSending</h1>
+  <div class="tabs">
+    <button id="tabSend" class="on">Invia al computer</button>
+    <button id="tabGet">Ricevi dal computer</button>
+  </div>
+
+  <section id="send">
+    <div class="card">
+      <label class="field" for="device">Nome di questo telefono</label>
+      <input id="device" type="text" maxlength="40" autocomplete="off">
+      <p class="muted" style="margin:6px 0 0">I file finiscono in una cartella con questo nome.</p>
+    </div>
+
+    <div class="card" id="pick">
+      <input id="files" type="file" multiple class="hidden">
+      <button class="big" id="pickBtn">Scegli foto, video e file</button>
+      <p class="muted" id="pickInfo" style="margin:10px 0 0">Puoi selezionarne anche migliaia insieme.</p>
+      <button class="big hidden" id="startBtn" style="margin-top:12px">Invia</button>
+    </div>
+
+    <div class="card hidden" id="progress">
+      <div class="row"><h2 id="phase">Invio in corso…</h2><span id="pct" class="muted">0%</span></div>
+      <div class="bar"><div id="barFill"></div></div>
+      <div class="row muted"><span id="bytes">0 / 0</span><span id="speed"></span></div>
+      <div class="stats">
+        <div class="stat"><b id="sDone" class="ok">0</b><span class="muted">salvati e verificati</span></div>
+        <div class="stat"><b id="sDup">0</b><span class="muted">già presenti</span></div>
+        <div class="stat"><b id="sLeft">0</b><span class="muted">da inviare</span></div>
+        <div class="stat"><b id="sErr" class="err">0</b><span class="muted">errori</span></div>
+      </div>
+      <ul class="list" id="current"></ul>
+      <div class="notice" id="keepOpen">⚠️ Tieni questa pagina aperta e lo schermo acceso fino alla fine.
+        Se la Wi-Fi cade, l'invio riprende da solo.</div>
+      <div class="hidden" id="doneBox" style="margin-top:12px">
+        <div class="notice" id="doneMsg"></div>
+        <button class="big secondary hidden" id="retryBtn" style="margin-top:10px">Riprova i file con errori</button>
+        <button class="big" id="againBtn" style="margin-top:10px">Invia altri file</button>
+      </div>
+      <ul class="list" id="errList"></ul>
+    </div>
+  </section>
+
+  <section id="get" class="hidden">
+    <div class="card">
+      <div class="row"><h2>File sul computer</h2><a class="btn" href="#" id="refresh">Aggiorna</a></div>
+      <p class="muted" style="margin:4px 0 8px">Tocca un mese per vedere i file. "Scarica tutto" crea un unico file .zip.</p>
+      <div id="lib" class="muted">Caricamento…</div>
+    </div>
+  </section>
+</main>
+
+<script>
+"use strict";
+const CHUNK = 8 * 1024 * 1024;   // dimensione di ogni pezzo
+const PARALLEL = 3;              // file inviati contemporaneamente
+const $ = (id) => document.getElementById(id);
+
+// ---------- utilità ----------
+function fmt(n) {
+  if (n < 1024) return n + " B";
+  const u = ["KB", "MB", "GB", "TB"]; let i = -1;
+  do { n /= 1024; i++; } while (n >= 1024 && i < u.length - 1);
+  return n.toFixed(n < 10 ? 1 : 0) + " " + u[i];
+}
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } }
+function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+
+async function api(path, opts = {}, tries = 30) {
+  for (let i = 0; ; i++) {
+    try {
+      const res = await fetch(path, { credentials: "same-origin", ...opts });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401) throw Object.assign(new Error(data.error || "Codice scaduto: inquadra di nuovo il QR"), { fatal: true });
+      if (res.ok || [400, 403, 404, 409, 413, 507].includes(res.status)) return { status: res.status, data };
+      throw new Error(data.error || "errore " + res.status);
+    } catch (e) {
+      if (e.fatal || i >= tries) throw e;
+      await sleep(Math.min(30000, 1000 * 2 ** Math.min(i, 5)));   // rete caduta: aspetta e riprova
+    }
+  }
+}
+
+async function sha256hex(buf) {
+  if (!(window.crypto && crypto.subtle)) return null;
+  const h = await crypto.subtle.digest("SHA-256", buf);
+  return [...new Uint8Array(h)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+// ---------- nome del dispositivo ----------
+function guessDevice() {
+  const ua = navigator.userAgent;
+  if (/iPhone/.test(ua)) return "iPhone";
+  if (/iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)) return "iPad";
+  const m = ua.match(/Android [\d.]+; ([^;)]+?)(?: Build|\))/);
+  if (m && m[1] && m[1] !== "K") return m[1].trim();
+  if (/Android/.test(ua)) return "Android";
+  return "Dispositivo";
+}
+$("device").value = store("device") || guessDevice();
+$("device").addEventListener("change", () => store("device", $("device").value.trim() || guessDevice()));
+
+// ---------- schede ----------
+$("tabSend").onclick = () => { $("tabSend").classList.add("on"); $("tabGet").classList.remove("on"); $("send").classList.remove("hidden"); $("get").classList.add("hidden"); };
+$("tabGet").onclick = () => { $("tabGet").classList.add("on"); $("tabSend").classList.remove("on"); $("get").classList.remove("hidden"); $("send").classList.add("hidden"); loadLibrary(); };
+
+// ---------- scelta file ----------
+let chosen = [];
+$("pickBtn").onclick = () => $("files").click();
+$("files").onchange = () => {
+  chosen = [...$("files").files];
+  const total = chosen.reduce((a, f) => a + f.size, 0);
+  $("pickInfo").textContent = chosen.length ? `${chosen.length} file selezionati · ${fmt(total)}` : "Nessun file selezionato.";
+  $("startBtn").classList.toggle("hidden", !chosen.length);
+};
+$("startBtn").onclick = () => run(chosen);
+$("againBtn").onclick = () => { $("progress").classList.add("hidden"); $("pick").classList.remove("hidden"); $("files").value = ""; chosen = []; $("startBtn").classList.add("hidden"); $("pickInfo").textContent = "Puoi selezionarne anche migliaia insieme."; };
+
+// ---------- invio ----------
+let state, wakeLock = null;
+async function keepAwake() {
+  try { if ("wakeLock" in navigator) wakeLock = await navigator.wakeLock.request("screen"); } catch (e) {}
+}
+document.addEventListener("visibilitychange", () => { if (state && state.running && document.visibilityState === "visible") keepAwake(); });
+
+const isVideo = (f) => /^video\//.test(f.type) || /\.(mov|mp4|m4v|3gp)$/i.test(f.name);
+
+async function run(files) {
+  // prima le foto, poi i video: così le Live Photo restano abbinate
+  files = [...files].sort((a, b) => (isVideo(a) - isVideo(b)) || (a.lastModified - b.lastModified));
+  state = { queue: files, total: files.reduce((a, f) => a + f.size, 0), sent: 0, done: 0, dup: 0,
+            errors: [], left: files.length, running: true, active: new Map(), t0: Date.now(), lastSent: 0, lastT: Date.now() };
+  $("pick").classList.add("hidden");
+  $("progress").classList.remove("hidden");
+  $("doneBox").classList.add("hidden");
+  $("keepOpen").classList.remove("hidden");
+  $("errList").innerHTML = "";
+  $("phase").textContent = "Invio in corso…";
+  keepAwake();
+  const timer = setInterval(render, 500);
+  const device = $("device").value.trim() || guessDevice();
+  store("device", device);
+  let fatal = null;
+  const worker = async () => {
+    while (state.queue.length && !fatal) {
+      const f = state.queue.shift();
+      try { await sendFile(f, device); }
+      catch (e) {
+        if (e.fatal) fatal = e;
+        state.errors.push({ file: f, msg: e.message || String(e) });
+        state.sent += f.size - (state.active.get(f) || 0);
+        state.active.delete(f);
+      }
+      state.left--;
+    }
+  };
+  await Promise.all(Array.from({ length: PARALLEL }, worker));
+  state.running = false;
+  clearInterval(timer);
+  render();
+  try { wakeLock && wakeLock.release(); } catch (e) {}
+  finish(fatal);
+}
+
+async function sendFile(f, device, attempt = 0) {
+  state.active.set(f, 0);
+  let r = await api("/api/upload/start", { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ device, name: f.name, size: f.size, lastModified: f.lastModified }) });
+  if (r.status !== 200) throw new Error(r.data.error || "impossibile iniziare");
+  const id = r.data.id;
+  let offset = r.data.received;     // se era già arrivato in parte, riprende da qui
+  bump(f, offset);
+  let bad = 0;
+  while (offset < f.size) {
+    const buf = await f.slice(offset, Math.min(f.size, offset + CHUNK)).arrayBuffer();
+    const hash = await sha256hex(buf);
+    const headers = { "Content-Type": "application/octet-stream" };
+    if (hash) headers["X-Chunk-SHA256"] = hash;
+    r = await api(`/api/upload/chunk?id=${id}&offset=${offset}`, { method: "POST", headers, body: buf });
+    if (r.status === 200) { bump(f, r.data.received); offset = r.data.received; bad = 0; }
+    else if (r.status === 409 && typeof r.data.received === "number") { bump(f, r.data.received); offset = r.data.received; }
+    else if (++bad > 5) throw new Error(r.data.error || "errore di invio");
+  }
+  r = await api("/api/upload/finish", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id }) });
+  if (r.status === 409 && attempt < 3) return sendFile(f, device, attempt + 1);   // mancava qualcosa: completa
+  if (r.status !== 200) throw new Error(r.data.error || "verifica fallita");
+  if (r.data.status === "duplicate") state.dup++; else state.done++;
+  state.active.delete(f);
+}
+
+function bump(f, received) {
+  const prev = state.active.get(f) || 0;
+  state.sent += received - prev;
+  state.active.set(f, received);
+}
+
+function render() {
+  const s = state, pct = s.total ? Math.floor((s.sent / s.total) * 100) : 100;
+  $("barFill").style.width = pct + "%";
+  $("pct").textContent = pct + "%";
+  $("bytes").textContent = `${fmt(s.sent)} / ${fmt(s.total)}`;
+  const now = Date.now(), dt = (now - s.lastT) / 1000;
+  if (dt >= 2) { s.speed = (s.sent - s.lastSent) / dt; s.lastSent = s.sent; s.lastT = now; }
+  if (s.running && s.speed > 0) {
+    const eta = (s.total - s.sent) / s.speed;
+    $("speed").textContent = `${fmt(s.speed)}/s · ${eta > 90 ? Math.round(eta / 60) + " min" : Math.round(eta) + " s"}`;
+  } else $("speed").textContent = "";
+  $("sDone").textContent = s.done; $("sDup").textContent = s.dup;
+  $("sLeft").textContent = s.left; $("sErr").textContent = s.errors.length;
+  $("current").innerHTML = [...s.active.entries()].map(([f, r]) =>
+    `<li><span>${esc(f.name)}</span><span class="muted">${f.size ? Math.floor(r / f.size * 100) : 100}%</span></li>`).join("");
+}
+
+function finish(fatal) {
+  $("keepOpen").classList.add("hidden");
+  $("doneBox").classList.remove("hidden");
+  const s = state, n = s.done + s.dup;
+  if (fatal) {
+    $("phase").textContent = "Interrotto";
+    $("doneMsg").innerHTML = `<span class="err">${esc(fatal.message)}</span>`;
+  } else if (!s.errors.length) {
+    $("phase").textContent = "✅ Completato";
+    $("doneMsg").innerHTML = `<span class="ok"><b>${n === 1 ? "Il file è arrivato ed è stato verificato." : `Tutti i ${n} file sono arrivati e sono stati verificati.`}</b></span>` +
+      (s.dup ? `<br>${s.dup === 1 ? "1 era già sul computer e non è stato copiato" : s.dup + " erano già sul computer e non sono stati copiati"} di nuovo.` : "") +
+      `<br><span class="muted">Ora puoi cancellarli dal telefono, se vuoi.</span>`;
+  } else {
+    $("phase").textContent = "Completato con errori";
+    $("doneMsg").innerHTML = `${n} file verificati, <span class="err">${s.errors.length} non inviati</span>. ` +
+      `<b>Non cancellare dal telefono i file con errori.</b>`;
+  }
+  $("retryBtn").classList.toggle("hidden", !s.errors.length);
+  $("errList").innerHTML = s.errors.slice(0, 200).map((e) =>
+    `<li><span>${esc(e.file.name)}</span><span class="err">${esc(e.msg)}</span></li>`).join("");
+  $("current").innerHTML = "";
+}
+$("retryBtn").onclick = () => run(state.errors.map((e) => e.file));
+
+window.addEventListener("beforeunload", (e) => { if (state && state.running) { e.preventDefault(); e.returnValue = ""; } });
+
+// ---------- ricevi ----------
+async function loadLibrary() {
+  $("lib").textContent = "Caricamento…";
+  try {
+    const r = await api("/api/library", {}, 2);
+    if (r.status !== 200) throw new Error(r.data.error);
+    const devs = r.data;
+    if (!devs.length) { $("lib").textContent = "Ancora nessun file sul computer."; return; }
+    $("lib").innerHTML = devs.map((d) => `<h2 style="margin-top:12px">📁 ${esc(d.device)}</h2>` + d.groups.map((g) => {
+      const size = g.files.reduce((a, f) => a + f.size, 0);
+      const q = encodeURIComponent(g.path);
+      return `<details><summary><span>${esc(g.label)}</span><span class="muted">${g.files.length} · ${fmt(size)}</span></summary>
+        <p><a class="btn" href="/api/zip?p=${q}">Scarica tutto (.zip)</a></p>
+        <ul class="list">${g.files.map((f) => {
+          const p = encodeURIComponent(g.path + "/" + f.name);
+          return `<li><a class="file" href="/api/file?p=${p}"><span>${esc(f.name)}</span></a><span class="muted">${fmt(f.size)}</span></li>`;
+        }).join("")}</ul></details>`;
+    }).join("")).join("");
+  } catch (e) { $("lib").innerHTML = `<span class="err">${esc(e.message || "Errore")}</span>`; }
+}
+$("refresh").onclick = (e) => { e.preventDefault(); loadLibrary(); };
+</script>
+</body>
+</html>

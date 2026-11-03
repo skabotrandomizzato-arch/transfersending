@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TransferSending</title>
+<style>
+  :root { --bg:#f5f6f8; --card:#fff; --text:#16181d; --muted:#626a77; --accent:#0b6bcb;
+          --ok:#1d8a4a; --line:#e3e6ea; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg:#111318; --card:#1b1e25; --text:#eef0f3; --muted:#9aa3b0; --accent:#4c9bff;
+            --ok:#4cc27e; --line:#2b2f38; }
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; padding:24px 16px; background:var(--bg); color:var(--text);
+         font:16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width:900px; margin:0 auto; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:16px; }
+  @media (max-width:760px) { main { grid-template-columns:1fr; } }
+  h1 { max-width:900px; margin:0 auto 16px; font-size:24px; }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:16px; padding:20px; }
+  #qr { background:#fff; border-radius:12px; padding:12px; max-width:320px; margin:0 auto; }
+  #qr svg { width:100%; height:auto; display:block; }
+  ol { padding-left:20px; margin:12px 0 0; } li { margin-bottom:6px; }
+  .muted { color:var(--muted); font-size:14px; }
+  code { font-size:13px; word-break:break-all; background:var(--bg); padding:2px 6px; border-radius:6px; }
+  .stats { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:12px 0; }
+  .stat { background:var(--bg); border-radius:10px; padding:10px; }
+  .stat b { display:block; font-size:22px; }
+  button { padding:10px 14px; border-radius:10px; border:1px solid var(--line); background:var(--card);
+           color:var(--text); font-size:15px; font-weight:600; cursor:pointer; margin:4px 6px 0 0; }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; }
+  ul { list-style:none; padding:0; margin:8px 0 0; font-size:14px; }
+  ul li { border-top:1px solid var(--line); padding:6px 0; display:flex; justify-content:space-between; gap:8px; }
+  ul li span:first-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .ok { color:var(--ok); }
+  #off { display:none; text-align:center; padding:60px 16px; }
+</style>
+</head>
+<body>
+<h1>📲 TransferSending</h1>
+<main id="ui">
+  <div class="card">
+    <div id="qr"></div>
+    <ol>
+      <li>Collega il telefono alla <b>stessa Wi-Fi</b> di questo computer.</li>
+      <li>Apri la <b>fotocamera</b> e inquadra il codice.</li>
+      <li>La prima volta il telefono avvisa che la connessione "non è privata":
+        tocca <b>Mostra dettagli → Visita questo sito</b> (iPhone) oppure
+        <b>Avanzate → Procedi</b> (Android). È normale: il collegamento resta cifrato.</li>
+    </ol>
+    <p class="muted">Indirizzo: <code id="url"></code></p>
+  </div>
+  <div class="card">
+    <h2 style="margin-top:0;font-size:18px">Stato</h2>
+    <div class="stats">
+      <div class="stat"><b id="saved" class="ok">0</b><span class="muted">salvati</span></div>
+      <div class="stat"><b id="dup">0</b><span class="muted">già presenti</span></div>
+      <div class="stat"><b id="bytes">0</b><span class="muted">ricevuti</span></div>
+    </div>
+    <p class="muted">Cartella: <code id="dest"></code></p>
+    <button class="primary" id="open">Apri cartella</button>
+    <button id="quit">Spegni</button>
+    <p class="muted" id="idle"></p>
+    <h3 style="font-size:15px;margin:16px 0 0">In arrivo</h3>
+    <ul id="active"><li class="muted">Niente in questo momento</li></ul>
+    <h3 style="font-size:15px;margin:16px 0 0">Ultimi file</h3>
+    <ul id="recent"></ul>
+  </div>
+</main>
+<div id="off" class="card"><h2>Spento</h2><p class="muted">Puoi chiudere questa finestra.</p></div>
+<script>
+"use strict";
+const $ = (id) => document.getElementById(id);
+function fmt(n) { if (n < 1024) return n + " B"; const u = ["KB","MB","GB","TB"]; let i = -1; do { n /= 1024; i++; } while (n >= 1024 && i < 3); return n.toFixed(n < 10 ? 1 : 0) + " " + u[i]; }
+function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+let lastQr = "";
+async function tick() {
+  let s;
+  try { s = await (await fetch("/api/status")).json(); } catch (e) { return showOff(); }
+  if (s.qr !== lastQr) { $("qr").innerHTML = s.qr; lastQr = s.qr; }
+  $("url").textContent = s.url;
+  $("dest").textContent = s.dest;
+  $("saved").textContent = s.stats.saved;
+  $("dup").textContent = s.stats.duplicates;
+  $("bytes").textContent = fmt(s.stats.bytes);
+  $("idle").textContent = s.idleMinutes ? `Si spegne da solo dopo ${s.idleMinutes} minuti senza attività (mancano ${Math.ceil(s.idleLeft / 60)} min).` : "";
+  $("active").innerHTML = s.active.length ? s.active.map((a) =>
+    `<li><span>${esc(a.device)} · ${esc(a.name)}</span><span class="muted">${a.size ? Math.floor(a.received / a.size * 100) : 100}%</span></li>`).join("")
+    : `<li class="muted">Niente in questo momento</li>`;
+  $("recent").innerHTML = s.recent.map((r) =>
+    `<li><span title="${esc(r.path)}">${esc(r.path)}</span><span class="${r.status === "salvato" ? "ok" : "muted"}">${esc(r.status)}</span></li>`).join("");
+}
+function showOff() { $("ui").style.display = "none"; $("off").style.display = "block"; clearInterval(timer); }
+$("open").onclick = () => fetch("/api/open-folder", { method: "POST" });
+$("quit").onclick = async () => { if (confirm("Spegnere TransferSending?")) { await fetch("/api/quit", { method: "POST" }).catch(() => {}); showOff(); } };
+const timer = setInterval(tick, 1500);
+tick();
+</script>
+</body>
+</html>

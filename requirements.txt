@@ -1,0 +1,3 @@
+cryptography>=42
+exifread>=3.0
+qrcode>=7.4
